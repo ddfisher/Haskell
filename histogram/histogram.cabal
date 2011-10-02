@@ -1,0 +1,16 @@
+-- Required
+Name: Word-Frequency-Histogram
+Version: 1.0
+License: GPL
+Copyright: (c) 2011 David Fisher
+-- Optional
+Build-Depends: base, containers
+Build-Type: Simple
+Modules: Distribution.Package, Distribution.Version, Distribution.Simple.GHCPackageConfig
+Options-ghc: -Wall
+
+-- Next is an executable
+Executable: histogram
+Main-is: histogram.hs
+Modules: Main
+HS-Source-Dir: .
