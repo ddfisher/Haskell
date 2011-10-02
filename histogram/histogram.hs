@@ -45,12 +45,9 @@ make_bar padded_length scaling_factor (word, count) | bar_length == 0 = ""
          bar_length = round $ fromInteger count * scaling_factor
          bar = replicate bar_length '#'
 
-
+-- strict for efficiency (not properly profiled, but somewhat empirically tested)
 count_words :: [String] -> Map.Map String Integer
-count_words word_list = foldl (\mp word -> Map.insertWith (+) word 1 mp) Map.empty word_list
-
-count_words' :: [String] -> Map.Map String Integer
-count_words' word_list = List.foldl' (\mp word -> Map.insertWith' (+) word 1 mp) Map.empty word_list
+count_words word_list = List.foldl' (\mp word -> Map.insertWith' (+) word 1 mp) Map.empty word_list
 
 parse_words :: String -> [String]
 parse_words contents = contents $> map Char.toLower $> words $> map strip_punctuation $> filter (not.null)
