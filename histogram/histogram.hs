@@ -28,7 +28,7 @@ infixl 0 $>
 main :: IO()
 main = do
  args <- getArgs
- contents <- if null args then getContents else sequence (map readFile args) >>= return . unlines
+ contents <- if null args then getContents else mapM readFile args >>= return . unlines
  putStrLn (contents $> parse_words $> count_words $> make_bar_chart)
 
 make_bar_chart :: Map.Map String Integer -> String
