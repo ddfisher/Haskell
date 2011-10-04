@@ -16,16 +16,6 @@ max_line_length = 80
 x $> f = f x
 infixl 0 $>
 
--- hist_vert_line :: [Integer] -> Integer -> String
--- hist_vert_line heights level = concat $ List.intersperse spacer $ map draw_bar heights
---         where draw_bar height | height > level  = bar
---                               | height == level = bar_top
---                               | height < level  = no_bar
--- 
--- build_vert_hist :: [Integer] -> String
--- build_vert_hist heights = List.unlines $ map (hist_vert_line heights) [max_height,max_height-1..1]
---         where max_height = maximum heights
-
 main :: IO()
 main = do
  args <- getArgs
