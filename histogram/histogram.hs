@@ -1,4 +1,5 @@
 import System.Environment
+import Control.Monad
 import qualified Data.List as List
 import qualified Data.Char as Char
 import qualified Data.Map as Map
@@ -28,13 +29,13 @@ infixl 0 $>
 main :: IO()
 main = do
  args <- getArgs
- contents <- if null args then getContents else mapM readFile args >>= return . unlines
+ contents <- if null args then getContents else liftM unlines (mapM readFile args)
  putStrLn (contents $> parse_words $> count_words $> make_bar_chart)
 
 make_bar_chart :: Map.Map String Integer -> String
 make_bar_chart word_map = sorted_word_list $> map (make_bar padded_length scaling_factor) $> filter (not.null) $> unlines
    where sorted_word_list = List.sortBy (\(_, count1) (_, count2) -> compare count2 count1) (Map.assocs word_map)
-         padded_length = (maximum $ map (length . fst) sorted_word_list) + 1
+         padded_length = maximum (map (length . fst) sorted_word_list) + 1
          max_count = snd $ head sorted_word_list
          scaling_factor = min 1.0 $ (fromIntegral max_line_length - fromIntegral padded_length) / fromIntegral max_count
 
@@ -47,7 +48,7 @@ make_bar padded_length scaling_factor (word, count) | bar_length == 0 = ""
 
 -- strict for efficiency (not properly profiled, but somewhat empirically tested)
 count_words :: [String] -> Map.Map String Integer
-count_words word_list = List.foldl' (\mp word -> Map.insertWith' (+) word 1 mp) Map.empty word_list
+count_words = List.foldl' (\mp word -> Map.insertWith' (+) word 1 mp) Map.empty
 
 parse_words :: String -> [String]
 parse_words contents = contents $> map Char.toLower $> words $> map strip_punctuation $> filter (not.null)
