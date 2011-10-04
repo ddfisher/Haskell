@@ -1,0 +1,2 @@
+I am David Fisher (ddfisher).  You can build my program with the standard cabal build tool (Setup.hs included).
+Run the histogram binary with no arguments to read from stdin or with filenames as arguments to process all the files.
