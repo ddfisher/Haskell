@@ -2,6 +2,7 @@
 
 import qualified Data.Vector.Mutable as V
 import qualified Data.Vector.Algorithms.Search as S
+import Data.Ord
 import Control.Monad.ST
 
 num_siblings = 2
@@ -32,10 +33,10 @@ insert tree newRect = do
 chooseLeaf :: HilbertValue -> HRT s -> ST s (PathEntry s, [PathEntry s])
 chooseLeaf h tree = chooseLeafWithPath h tree []
       where chooseLeafWithPath h l@(Leaf entries) pathEntries = do
-                                                                 leafIndex <- S.binarySearchBy (\l1 l2 -> hv l1 `compare` hv l2) entries (LeafEntry {hv = h})
+                                                                 leafIndex <- S.binarySearchBy (comparing hv) entries LeafEntry {hv = h}
                                                                  return (PathEntry l leafIndex, pathEntries)
             chooseLeafWithPath h n@(Node entries) pathEntries = do
-                                                                 nodeIndex <- S.binarySearchBy (\n1 n2 -> lhv n1 `compare` lhv n2) entries (NodeEntry {lhv = h})
+                                                                 nodeIndex <- S.binarySearchBy (comparing lhv) entries NodeEntry {lhv = h}
                                                                  nextNode <- V.read entries nodeIndex 
                                                                  chooseLeafWithPath h (child_tree nextNode) (PathEntry n nodeIndex:pathEntries)
 
@@ -47,7 +48,7 @@ insertIntoLeaf newEntry (PathEntry leaf index) | V.length vect >= max_entries = 
                           vect = case leaf of Leaf entries -> entries
 
 handleOverflow :: LeafEntry -> PathEntry s -> PathEntry s -> ST s ()
-handleOverflow = undefined
+handleOverflow newEntry (PathEntry _ leafIndex) (PathEntry parent _) = undefined
 
 adjustTree :: [PathEntry s] -> ST s (HRT s)
 adjustTree = undefined
