@@ -1,12 +1,15 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ForeignFunctionInterface #-}
 
 import qualified Data.Vector.Mutable as V
 import qualified Data.Vector.Algorithms.Search as S
 import Data.Ord
 import Control.Monad.ST
+import Foreign.C
 
-num_siblings = 2
-max_entries = 5
+numSiblings = 2
+maxEntries = 5
+maxSideLen = 65536 -- must be a power of 2
+
 
 data NodeEntry s = NodeEntry {mbr :: Rect, lhv :: HilbertValue, child_tree :: HRT s}
 data LeafEntry = LeafEntry {br :: Rect, hv :: HilbertValue}
@@ -20,6 +23,13 @@ data Rect = Rect { lowX :: Int
             , highY :: Int }
 
 newtype HilbertValue = HilbertValue Int deriving (Eq, Ord)
+
+
+foreign import ccall "hilbert_value.c xy2d" c_hilbert_value :: CInt -> CInt -> CInt -> CInt 
+findHilbertValue :: Rect -> HilbertValue
+findHilbertValue rect = HilbertValue . fromIntegral $ c_hilbert_value maxSideLen (fromIntegral xCenter) (fromIntegral yCenter)
+            where xCenter = (lowX rect + highX rect) `div` 2
+                  yCenter = (lowY rect + highY rect) `div` 2
 
 insert :: HRT s -> Rect -> ST s (HRT s)
 insert tree newRect = do
@@ -41,7 +51,7 @@ chooseLeaf h tree = chooseLeafWithPath h tree []
                                                                  chooseLeafWithPath h (child_tree nextNode) (PathEntry n nodeIndex:pathEntries)
 
 insertIntoLeaf :: LeafEntry -> PathEntry s -> ST s Bool
-insertIntoLeaf newEntry (PathEntry leaf index) | V.length vect >= max_entries = return False
+insertIntoLeaf newEntry (PathEntry leaf index) | V.length vect >= maxEntries = return False
                                                | otherwise                    = vectorInsert newEntry index (V.length vect) >> return True
                     where vectorInsert value ind end | end == ind = V.write vect ind value
                                                      | otherwise  = V.swap vect end (end-1) >> vectorInsert value ind (end-1)
@@ -52,7 +62,4 @@ handleOverflow newEntry (PathEntry _ leafIndex) (PathEntry parent _) = undefined
 
 adjustTree :: [PathEntry s] -> ST s (HRT s)
 adjustTree = undefined
-
-findHilbertValue :: Rect -> HilbertValue
-findHilbertValue = undefined --TODO: complete
 
