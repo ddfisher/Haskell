@@ -1,7 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, ForeignFunctionInterface #-}
 
 import qualified Data.Vector.Mutable as V
+import qualified Data.Vector.Generic as G
 import qualified Data.Vector.Algorithms.Search as S
+import qualified Data.Vector.Algorithms.Insertion as I
+import Control.Monad
 import Data.Ord
 import Control.Monad.ST
 import Foreign.C
@@ -11,7 +14,7 @@ maxEntries = 5
 maxSideLen = 65536 -- must be a power of 2
 
 
-data NodeEntry s = NodeEntry {mbr :: Rect, lhv :: HilbertValue, child_tree :: HRT s}
+data NodeEntry s = NodeEntry {mbr :: Rect, lhv :: HilbertValue, childTree :: HRT s}
 data LeafEntry = LeafEntry {br :: Rect, hv :: HilbertValue}
 
 data HRT s = Leaf (V.STVector s LeafEntry) | Node (V.STVector s (NodeEntry s))
@@ -31,6 +34,17 @@ findHilbertValue rect = HilbertValue . fromIntegral $ c_hilbert_value maxSideLen
             where xCenter = (lowX rect + highX rect) `div` 2
                   yCenter = (lowY rect + highY rect) `div` 2
 
+intersects :: Rect -> Rect -> Bool
+intersects r1 r2 =    lowX r1 < highX r2 && lowX r2 < highX r1
+                   && lowY r1 < highY r2 && lowY r2 < highY r1
+
+search :: HRT s -> Rect -> ST s [Rect]
+search (Leaf entries) query = (liftM $ filter (intersects query)) (mapSTVector br entries) 
+search (Node entries) query = do
+                                intersectingChildren <- (liftM $ map childTree) $ filterSTVector (intersects query . mbr) entries
+                                results <- mapM (`search` query) intersectingChildren
+                                return $ concat results
+
 insert :: HRT s -> Rect -> ST s (HRT s)
 insert tree newRect = do
         let h = findHilbertValue newRect
@@ -48,7 +62,7 @@ chooseLeaf h tree = chooseLeafWithPath h tree []
             chooseLeafWithPath h n@(Node entries) pathEntries = do
                                                                  nodeIndex <- S.binarySearchBy (comparing lhv) entries NodeEntry {lhv = h}
                                                                  nextNode <- V.read entries nodeIndex 
-                                                                 chooseLeafWithPath h (child_tree nextNode) (PathEntry n nodeIndex:pathEntries)
+                                                                 chooseLeafWithPath h (childTree nextNode) (PathEntry n nodeIndex:pathEntries)
 
 insertIntoLeaf :: LeafEntry -> PathEntry s -> ST s Bool
 insertIntoLeaf newEntry (PathEntry leaf index) | V.length vect >= maxEntries = return False
@@ -61,5 +75,28 @@ handleOverflow :: LeafEntry -> PathEntry s -> PathEntry s -> ST s ()
 handleOverflow newEntry (PathEntry _ leafIndex) (PathEntry parent _) = undefined
 
 adjustTree :: [PathEntry s] -> ST s (HRT s)
-adjustTree = undefined
+adjustTree ((PathEntry currentNode@(Node childEntries) index):rest) = do
+                                                changedEntry <- V.read childEntries index
+                                                fixedEntry <- fixNodeEntry changedEntry
+                                                V.write childEntries index fixedEntry
+                                                I.sortBy (comparing lhv) childEntries
+                                                if null rest then return currentNode else adjustTree rest
+    where fixNodeEntry node@(NodeEntry _ _ (Node entries)) = do
+                                                                newMBR <- (liftM findMBR) (mapSTVector mbr entries)
+                                                                newLHV <- (liftM findLHV) (mapSTVector lhv entries)
+                                                                return $ node {mbr = newMBR, lhv = newLHV}
 
+findMBR :: [Rect] -> Rect
+findMBR rects = Rect lowestX highestX lowestY highestY
+    where lowestX  = minimum $ map lowX rects
+          highestX = maximum $ map highX rects
+          lowestY  = minimum $ map lowY rects
+          highestY = maximum $ map highY rects
+findLHV :: [HilbertValue] -> HilbertValue
+findLHV lhvs = maximum lhvs
+
+mapSTVector :: (a -> b) -> V.STVector s a -> ST s [b]
+mapSTVector f v = mapM ((liftM f) . V.read v) [1..V.length v]
+
+filterSTVector :: (a -> Bool) -> V.STVector s a -> ST s [a]
+filterSTVector p v = liftM (filter p) $ mapSTVector id v
