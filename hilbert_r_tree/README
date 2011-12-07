@@ -1,2 +1,2 @@
-Make with: ghc --make r_tree_st.hs hilbert_value.c
-Currently not working...
+Make with: ghc --make RTreeMain.hs RTree.hs hilbert_value.c
+Make quickcheck tests with: ghc --make RTreeQuickCheck.hs RTree.hs hilbert_value.c
